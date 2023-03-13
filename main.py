@@ -3,23 +3,15 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.chrome.service import Service
-
-# other lib
+import seaborn as sns
+import matplotlib.pyplot as plt
 import time
 import os
-
-# bs
 from bs4 import BeautifulSoup as bs
 import requests
-
-# data
 import pandas as pd
 import re
-
-# make clickable
 from IPython.display import display, HTML
-
-# translator
 import uuid, json
 
 
@@ -238,8 +230,26 @@ def job_search():
         "Job Description URL": link_lst
     })
 
+    top_10_roles = df['Role Category'].value_counts().head(10)
+
     df = df.sort_values("Match Percentage", ascending=False)
     df = df.drop_duplicates(subset='Job ID', keep='first')
+
+    missing_values = df['Job Location'].isnull().sum()
+    if missing_values > 0:
+        df.dropna(subset=['Job Location'], inplace=True)
+    plt.figure(figsize=(16, 4))
+    sns.countplot(x='Job Location', data=df)
+    plt.show()
+
+    missing_values = df['Role Category'].isnull().sum()
+    if missing_values > 0:
+        df.dropna(subset=['Role Category'], inplace=True)
+    plt.figure(figsize=(16, 4))
+    sns.countplot(x='Role Category', data=df, order=top_10_roles.index)
+    plt.xticks(rotation=45, ha='right', fontsize=8)
+    plt.show()
+
     df.to_excel("output.xlsx")
     df['Job Description URL'] = '<a href="' + df['Job Description URL'].astype(str) + '">Link</a>'
     df = df.reset_index(drop=True)
