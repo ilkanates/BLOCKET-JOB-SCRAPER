@@ -1,22 +1,21 @@
 # selenium
+import numpy as np
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.chrome.service import Service
 import seaborn as sns
 import matplotlib.pyplot as plt
 import time
-import os
 from bs4 import BeautifulSoup as bs
 import requests
 import pandas as pd
 import re
 from IPython.display import display, HTML
-import uuid, json
+import uuid
 
 
 def translate_text(text_to_translate):
-    key = "a9250938ec9c46a392d89a01e99b78c8"
+    key = "you_key"
     endpoint = "https://api.cognitive.microsofttranslator.com"
     location = "eastus"
     path = '/translate'
@@ -38,10 +37,16 @@ def translate_text(text_to_translate):
     request = requests.post(constructed_url, params=params, headers=headers, json=body)
     response = request.json()
 
-    return response[0]['translations'][0]['text']
+    try:
+        translated_text = response[0]['translations'][0]['text']
+    except (KeyError, IndexError):
+        translated_text = ''
+
+    return translated_text
 
 
 def job_search():
+    global link
     url = "https://jobb.blocket.se/"
 
     while True:
@@ -93,7 +98,6 @@ def job_search():
     # create a driver
     service = Service("C:\Program Files (x86)\chromedriver.exe")
     driver = webdriver.Chrome(service=service)
-    # driver = webdriver.Chrome("C:\Program Files (x86)\chromedriver.exe")
     driver.get(url)  # bring us to the webpage
     time.sleep(2.5)  # wait a bit
 
@@ -129,7 +133,6 @@ def job_search():
 
     # Get the page source and create a soup
     soup = bs(driver.page_source, "lxml")
-    containers = soup.select("div.ui.divided.items.unstackable.jobitems > div.item.job-item")
 
     for x in range(0, search_range):
         url = f"https://jobb.blocket.se/lediga-jobb-i-{address}/sida{x}/?ks=freetext.{job_search}"
@@ -145,7 +148,7 @@ def job_search():
             link = [i['href'] for i in soup.select(link_key)]
 
             if j_title:
-                # title = translate_text(title)
+                title = translate_text(title)
                 title_lst.append(j_title[0])
             else:
                 title_lst.append(np.nan)
@@ -180,11 +183,16 @@ def job_search():
             url = i
             html = requests.get(url).content
             soup = bs(html)
-            time_left = [i.text for i in soup.select(time_left_key)][-1]
+            time_left_list = soup.select(time_left_key)
+            if not time_left_list:
+                time_left_lst.append(np.nan)
+                last_day_for_a_lst.append(np.nan)
+                continue
+            time_left = time_left_list[-1].text
             location = [i.text for i in soup.select(location_role_key)[0]]
             role = [i.text for i in soup.select(location_role_key)[1]]
             job_des = [i.text.lower() for i in soup.select(job_des_key)]
-            # job_des   = translate_text(job_des[0]).lower()
+            job_des = translate_text(job_des[0]).lower()
 
             result = re.search(r'(\d{2} [a-zA-Z]+ \d{4}) \((.+)\)', time_left)
             if result:
@@ -215,7 +223,6 @@ def job_search():
             else:
                 job_des_lst.append(np.nan)
 
-    new_job_lst = job_des[0].split()
 
     df = pd.DataFrame({
         "Job ID": id_lst,
