@@ -50,18 +50,36 @@ def translate_text(text_to_translate):
 
 def job_search():
     url = "https://jobb.blocket.se/"
+    while True:
+        title = input("Enter job title: ")
+        if title == '':
+            print("Job title cannot be empty.")
+        else:
+            job_search = ""
+            job_title_lst = title.split()
+            job_search = [(job_search + i + "+")[:-1] for i in job_title_lst]
+            break
 
-    job = input("Enter job title : ")
-    job_title_lst = job.split()
+    while True:
+        address = input("Enter address: ")
+        if address == '':
+            print("Address cannot be empty.")
+        else:
+            break
 
-    job_search = ""
-    for i in job_title_lst:
-        job_search = job_search + i + "+"
-    job_search = job_search[:-1]
-
-    address = input("Enter address : ")
-    search_range = input("How many pages do you want to search? : ")
-    search_range = int(search_range)
+    while True:
+        search_range = input("How many pages do you want to search? (default is 10): ")
+        if search_range == '':
+            search_range = 10
+            break
+        try:
+            search_range = int(search_range)
+            if search_range > 0:
+                break
+            else:
+                print("Search range must be a positive integer.")
+        except ValueError:
+            print("Invalid input. Please enter a positive integer.")
 
     skill_set_string = input("Enter your skills. Use comma to seperate it: ")
     skill_set = skill_set_string.lower().split(",")
@@ -89,7 +107,7 @@ def job_search():
 
     # find the search bar and enter keywords
     title_search = driver.find_element(By.CSS_SELECTOR, title_search_key)
-    title_search.send_keys(job)
+    title_search.send_keys(title)
 
     # find the search bar and enter keywords
 
@@ -165,7 +183,7 @@ def job_search():
             time_left = [i.text for i in soup.select(time_left_key)][-1]
             location = [i.text for i in soup.select(location_role_key)[1]]
             role = [i.text for i in soup.select(location_role_key)[2]]
-            job_des = [i.text for i in soup.select(job_des_key)]
+            job_des = [i.text.lower() for i in soup.select(job_des_key)]
             # job_des   = translate_text(job_des[0]).lower()
 
             if time_left:
