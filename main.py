@@ -2,6 +2,7 @@
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.chrome.service import Service
 
 # other lib
 import time
@@ -50,6 +51,7 @@ def translate_text(text_to_translate):
 
 def job_search():
     url = "https://jobb.blocket.se/"
+
     while True:
         title = input("Enter job title: ")
         if title == '':
@@ -61,9 +63,9 @@ def job_search():
             break
 
     while True:
-        address = input("Enter address: ")
+        address = input("Enter search location: ")
         if address == '':
-            print("Address cannot be empty.")
+            print("Search location cannot be empty.")
         else:
             break
 
@@ -88,15 +90,18 @@ def job_search():
     corp_key = "a.corp.bold"
     date_key = "div.extra>span"
     link_key = "a.header"
-    time_left_key = "table.ui.job-info.very.compact.borderless.fixed.table > tbody > tr> td:nth-child(2)"
-    location_role_key = "div.column.no-padding>span>a"
-    job_des_key = "body > div#page-flex-wrapper:nth-child(2) > div#body_content.white-bg:nth-child(4) > div.view:nth-child(4) > div.ui.container:nth-child(3) > div.ui.two.column.stackable.padded.grid > div.seven.wide.column.no-padding-mobile:nth-child(1) > div.ui.container.no-margin-mobile:nth-child(2) > div.ui.padded.grid > div#ad_text_column.ui.column.no-padding > div#job-description:nth-child(1)"
+    time_left_key = "div.sc-c17ee322-4.gRxzmG"
+    location_role_key = "div.sc-c17ee322-4.gRxzmG>a"
+    job_des_key = "div.sc-24042a23-15.fbaoBY"
     agree_key = "button.InfoPage__SchibstedButton-sc-3ewdh5-13.InfoPage__AcceptButton-sc-3ewdh5-15.gCzPOF"
     title_search_key = "div.ui.left.icon.fluid.large.input.search.category > input.prompt"
     location_search_key = "div>input.search"
     search_button_key = "div>a.ui.primary.button.fluid"
 
-    driver = webdriver.Chrome("C:\Program Files (x86)\chromedriver.exe")  # create a driver
+    # create a driver
+    service = Service("C:\Program Files (x86)\chromedriver.exe")
+    driver = webdriver.Chrome(service=service)
+    # driver = webdriver.Chrome("C:\Program Files (x86)\chromedriver.exe")
     driver.get(url)  # bring us to the webpage
     time.sleep(2.5)  # wait a bit
 
@@ -128,6 +133,7 @@ def job_search():
     role_lst = []
     job_des_lst = []
     match_lst = []
+    last_day_for_a_lst = []
 
     # Get the page source and create a soup
     soup = bs(driver.page_source, "lxml")
@@ -141,19 +147,21 @@ def job_search():
 
         for i in containers:
             # get title
-            title = [j.text.strip() for j in i.select(title_key)]
+            j_title = [j.text.strip() for j in i.select(title_key)]
             corp = [j.text.strip() for j in i.select(corp_key)]
             date = [j.text.strip() for j in i.select(date_key)]
             link = [i['href'] for i in soup.select(link_key)]
 
-            if title:
+            if j_title:
                 # title = translate_text(title)
-                title_lst.append(title)
+                title_lst.append(j_title[0])
             else:
                 title_lst.append(np.nan)
 
+            print(f"Number of jobs: {len(title_lst)}", end="\r")
+
             if corp:
-                corp_lst.append(corp)
+                corp_lst.append(corp[0])
             else:
                 corp_lst.append(np.nan)
 
@@ -181,23 +189,28 @@ def job_search():
             html = requests.get(url).content
             soup = bs(html)
             time_left = [i.text for i in soup.select(time_left_key)][-1]
-            location = [i.text for i in soup.select(location_role_key)[1]]
-            role = [i.text for i in soup.select(location_role_key)[2]]
+            location = [i.text for i in soup.select(location_role_key)[0]]
+            role = [i.text for i in soup.select(location_role_key)[1]]
             job_des = [i.text.lower() for i in soup.select(job_des_key)]
             # job_des   = translate_text(job_des[0]).lower()
 
-            if time_left:
-                time_left_lst.append(time_left)
+            result = re.search(r'(\d{2} [a-zA-Z]+ \d{4}) \((.+)\)', time_left)
+            if result:
+                last_day_for_a = result.group(1)
+                time_left_for_apply = result.group(2)
+                time_left_lst.append(time_left_for_apply)
+                last_day_for_a_lst.append(last_day_for_a)
             else:
+                last_day_for_a_lst.append(np.nan)
                 time_left_lst.append(np.nan)
 
             if location:
-                location_lst.append(location)
+                location_lst.append(location[0])
             else:
                 location_lst.append(np.nan)
 
             if role:
-                role_lst.append(role)
+                role_lst.append(role[0])
             else:
                 role_lst.append(np.nan)
 
@@ -212,22 +225,23 @@ def job_search():
 
     new_job_lst = job_des[0].split()
 
-    # df
     df = pd.DataFrame({
-        "Id": id_lst,
-        "Title": title_lst,
-        "Corperation": corp_lst,
-        "Created Date": date_lst,
-        "Last Apply Date": time_left_lst,
-        "Location": location_lst,
-        "Role Area": role_lst,
-        "Link": link_lst,
-        "Match": match_lst
+        "Job ID": id_lst,
+        "Job Title": title_lst,
+        "Company Name": corp_lst,
+        "Job Creation Date": date_lst,
+        "Last Day to Apply": last_day_for_a_lst,
+        "Days Left to Apply": time_left_lst,
+        "Job Location": location_lst,
+        "Role Category": role_lst,
+        "Match Percentage": match_lst,
+        "Job Description URL": link_lst
     })
-    df = df.sort_values("Match", ascending=False)
 
-    df = df.drop_duplicates(subset='Id', keep='first')
-    df['Link'] = '<a href="' + df['Link'].astype(str) + '">Link</a>'
+    df = df.sort_values("Match Percentage", ascending=False)
+    df = df.drop_duplicates(subset='Job ID', keep='first')
+    df.to_excel("output.xlsx")
+    df['Job Description URL'] = '<a href="' + df['Job Description URL'].astype(str) + '">Link</a>'
     df = df.reset_index(drop=True)
     df = display(HTML(df.to_html(escape=False)))
 
