@@ -1,4 +1,4 @@
-# Blocked Job Scraper
+# Blocket Job Scraper
 
 The Blocked Job Scraper is a Python script that extracts job postings from the Blocket job board based on user inputs such as job title, location, and search range. 
 
